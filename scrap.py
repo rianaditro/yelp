@@ -1,6 +1,6 @@
 from bs4 import BeautifulSoup
 
-import httpx,re
+import httpx,re,pandas
 
 
 class Scraper:
@@ -10,6 +10,7 @@ class Scraper:
     def get_html(self,url):
         resp = self.client.get(url)
         if resp.status_code == 200:
+            print(f"Got html from {url}")
             return resp.text
         else:
             print(f"{resp.status_code}: Error getting html from {url}")
@@ -17,65 +18,85 @@ class Scraper:
 class Parser:
     def __init__(self,html):
         self.soup = BeautifulSoup(html,"html.parser")
-    
-    def get_name(self):
-        names = self.soup.find_all("a", "css-19v1rkv")
-        name = [item.text.strip() for item in names]
-        return name
-    
-    def extract_all(self,tag,class_):
+        self.names = None
+        self.ratings = None
+        self.reviewCounts = None
+        self.keywords = None
+        self.reviews_text = None
+
+    def find_tag(self,tag,class_):
         try:
             text = self.soup.find_all(tag,class_)
             strip_text = [item.text.strip() for item in text]
             return strip_text
         except AttributeError:
             print(f"Tag {tag} and class {class_} not found")
-            return "Unknown"
+            return False
     
-def filter_list(ls:list):
-    remove = ["Yelp","Yelp for Business","Driving (5 mi.)"]
-    pattern = r'(\d+(\.\d+)?k?) reviews'
-    
-    ls = [item for item in ls if item not in remove]
-    if any("reviews" in item for item in ls):
-        reviewsCount = [re.search(pattern, item).group().replace(".","").replace("k","000").replace("reviews","") for item in ls if re.search(pattern, item)]
-        return reviewsCount
-    elif any("$$" in item for item in ls):
-        keywords = [re.sub(r'(?<=\w)(?=[A-Z])', ', ', text) for text in ls]
-        keywords = [re.sub(r'\$\$.+', '', text) for text in keywords]
-        return keywords
-    elif any("\xa0more" in item for item in ls):
-        reviews = [item.replace("\xa0more","") for item in ls]
-        return reviews
-    else:
-        return ls
+    def extract_html(self):
+        self.names = self.find_tag("a","css-19v1rkv")
+        self.ratings = self.find_tag("span","css-gutk1c")
+        self.reviewCounts = self.find_tag("span","css-chan6m")
+        self.keywords = self.find_tag("div","css-1kiyre6")
+        self.reviews_text = self.find_tag("p","css-16lklrv")
 
-def combine(name,rating,reviewCount,keyword,reviews):
+        self.soup = None
+
+    def filter_result(self):
+        # remove unwanted text from names and ratings
+        remove = ["Yelp","Yelp for Business","Driving (5 mi.)","Bird's-eye View"]
+        self.names = [item for item in self.names if item not in remove]
+        self.ratings = [float(item) for item in self.ratings if item not in remove]
+
+        # remove unwanted text from reviewCounts
+        pattern = r'(\d+(\.\d+)?k?) reviews'
+        self.reviewCounts = [re.search(pattern, item).group().replace(".","").replace("k","000").replace("reviews","") for item in self.reviewCounts if re.search(pattern, item)]
+        self.reviewCounts = [int(item) for item in self.reviewCounts]
+
+        # remove unwanted text from keywords
+        self.keywords = [item.split('$')[0].replace("DUMBO","") for item in self.keywords]
+        # separate each keyword by comma
+        self.keywords = [re.sub(r'(?<=\w)(?=[A-Z])', ', ', text) for text in self.keywords]
+
+
+        # remove unwanted text from reviews
+        self.reviews_text = [item.replace("\xa0more","") for item in self.reviews_text]
+        print(self.names)
+        print(self.ratings)
+        print(self.reviewCounts)
+        print(self.keywords)
+        print(self.reviews_text)
+
+    def result(self):
+        result = []
+        for i in range(len(self.names)):
+            res = {"name":self.names[i],
+                   "rating":self.ratings[i],
+                   "reviewCount":self.reviewCounts[i],
+                   "keyword":self.keywords[i],
+                   "reviews":self.reviews_text[i]}
+            result.append(res)
+        return result    
+
+def main():
     result = []
-    for i in range(10):
-        res = {"name":name[i],
-               "rating":rating[i],
-               "reviewCount":reviewCount[i],
-               "keyword":keyword[i],
-               "reviews":reviews[i]}
-        result.append(res)
-    return result  
-        
-
+    url="https://www.yelp.com/search?find_desc=Restaurants&find_loc=New+York%2C+NY%2C+United+States&start="
+    scraper = Scraper()
+    i = 0
+    while True:
+        html = scraper.get_html(url+str(i))
+        parser = Parser(html)
+        if parser.names == False:
+            break
+        else:
+            parser.extract_html()
+            parser.filter_result()
+            result.extend(parser.result())
+            i = i+10
+    return result
 
 if __name__=="__main__":
-    url = "https://www.yelp.com/search?find_desc=Restaurants&find_loc=New+York%2C+NY%2C+United+States&start=0"
-    with open('yelp.html','r') as file:
-        html_file = file.read()
-    parser = Parser(html_file)
-    name = parser.extract_all("a","css-19v1rkv")
-    rating = parser.extract_all("span","css-gutk1c")
-    reviewCount = parser.extract_all("span","css-chan6m")
-    keyword = parser.extract_all("div","css-1kiyre6")
-    reviews = parser.extract_all("p","css-16lklrv")
-    print(combine(name,rating,reviewCount,keyword,reviews))
-
-
-
-    
+    result = main()
+    df = pandas.DataFrame(result)
+    df.to_excel("yelp.csv",index=False)
 
