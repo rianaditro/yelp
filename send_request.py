@@ -5,7 +5,7 @@ class Scraper:
     def __init__(self):
         self.client = httpx.Client()
 
-    def get_html(self,url):
+    def get_html(self, url):
         resp = self.client.get(url)
         if resp.status_code == 200:
             print(f"Got html from {url}")
