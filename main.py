@@ -8,7 +8,7 @@ def main():
     result = []
     url = "https://www.yelp.com/search?find_desc=Restaurants&find_loc=New+York%2C+NY%2C+United+States&start="
     scraper = Scraper()
-    i = 90
+    i = 0
     while True:
         html = scraper.get_html(url+str(i))
         parser = Parser(html)
@@ -17,7 +17,7 @@ def main():
         parser.extract_html()
         parser.filter_result()
         result.extend(parser.result())
-        break
+        i += 10
 
     return result
 
@@ -25,4 +25,4 @@ def main():
 if __name__ == "__main__":
     result = main()
     df = pandas.DataFrame(result)
-    df.to_excel("yelp.xlsx", index=False)
+    df.to_csv("yelp.csv", index=False)

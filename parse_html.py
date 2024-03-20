@@ -67,4 +67,9 @@ class Parser:
 
 
 if __name__ == "__main__":
-    pass
+    with open("yelp.html", "r") as f:
+        html = f.read()
+    parser = Parser(html)
+    parser.extract_html()
+    parser.filter_result()
+    print(parser.result())
