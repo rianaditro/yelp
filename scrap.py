@@ -22,23 +22,26 @@ class Parser:
         self.ratings = None
         self.reviewCounts = None
         self.keywords = None
-        self.reviews_text = None
+    
+    def validate_page(self):
+        if self.soup.find("h3","css-lp6ju1"):
+            print("Page not found. Scraping finished")
+            return False
+        else:
+            return True
 
     def find_tag(self,tag,class_):
-        try:
-            text = self.soup.find_all(tag,class_)
-            strip_text = [item.text.strip() for item in text]
-            return strip_text
-        except AttributeError:
-            print(f"Tag {tag} and class {class_} not found")
-            return False
-    
+        text = self.soup.find_all(tag,class_)
+        strip_text = [item.text.strip() for item in text]
+        if strip_text == []:
+            print(f"No tag '{tag}' found")
+        return strip_text
+        
     def extract_html(self):
         self.names = self.find_tag("a","css-19v1rkv")
         self.ratings = self.find_tag("span","css-gutk1c")
         self.reviewCounts = self.find_tag("span","css-chan6m")
         self.keywords = self.find_tag("div","css-1kiyre6")
-        self.reviews_text = self.find_tag("p","css-16lklrv")
 
         self.soup = None
 
@@ -58,45 +61,37 @@ class Parser:
         # separate each keyword by comma
         self.keywords = [re.sub(r'(?<=\w)(?=[A-Z])', ', ', text) for text in self.keywords]
 
-
-        # remove unwanted text from reviews
-        self.reviews_text = [item.replace("\xa0more","") for item in self.reviews_text]
-        print(self.names)
-        print(self.ratings)
-        print(self.reviewCounts)
-        print(self.keywords)
-        print(self.reviews_text)
-
     def result(self):
         result = []
         for i in range(len(self.names)):
             res = {"name":self.names[i],
                    "rating":self.ratings[i],
                    "reviewCount":self.reviewCounts[i],
-                   "keyword":self.keywords[i],
-                   "reviews":self.reviews_text[i]}
+                   "keyword":self.keywords[i]}
             result.append(res)
+            print(res)
         return result    
 
 def main():
     result = []
     url="https://www.yelp.com/search?find_desc=Restaurants&find_loc=New+York%2C+NY%2C+United+States&start="
     scraper = Scraper()
-    i = 0
+    i = 230
     while True:
         html = scraper.get_html(url+str(i))
         parser = Parser(html)
-        if parser.names == False:
+        if parser.validate_page() == False:
             break
-        else:
-            parser.extract_html()
-            parser.filter_result()
-            result.extend(parser.result())
-            i = i+10
+        parser.extract_html()
+        parser.filter_result()
+        result.extend(parser.result())
+        i = i+10
+            
     return result
 
 if __name__=="__main__":
     result = main()
-    df = pandas.DataFrame(result)
-    df.to_excel("yelp.csv",index=False)
+    print(result)
+    # df = pandas.DataFrame(result)
+    # df.to_excel("yelp.xlsx",index=False)
 
