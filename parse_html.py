@@ -39,10 +39,8 @@ class Parser:
 
         # remove unwanted text from reviewCounts
         pattern = r'(\d+(\.\d+)?k?) reviews'
-        print(self.reviewCounts)
-        self.reviewCounts = [re.search(pattern, item).group().replace(".","").replace("k","000").replace("reviews","") for item in self.reviewCounts if re.search(pattern, item)]
-        print(self.reviewCounts)
-        self.reviewCounts = [int(item) for item in self.reviewCounts]
+        self.reviewCounts = [re.search(pattern, item).group() for item in self.reviewCounts if re.search(pattern, item)]
+        self.reviewCounts = [float(item.replace(" reviews","")) if "k" not in item else float(item.replace(".","").replace("k reviews","00")) for item in self.reviewCounts]
 
         # remove unwanted text from keywords
         self.keywords = [item.split('$')[0].replace("DUMBO","") for item in self.keywords]
@@ -59,3 +57,7 @@ class Parser:
                    "keyword":self.keywords[i]}
             result.append(res)
         return result
+    
+
+if __name__=="__main__":
+    pass

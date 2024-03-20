@@ -17,7 +17,7 @@ def main():
         parser.extract_html()
         parser.filter_result()
         result.extend(parser.result())
-        i = i+10
+        break
             
     return result
 
